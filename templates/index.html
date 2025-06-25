@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Magento to Shopify Converter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="logo">
+        <img src="{{ url_for('static', filename='media/random-play-logo.png') }}">
+    </div>
+    <form method="POST" action="/migrate-orders" enctype="multipart/form-data">
+        <div class="form-field">
+            <div class="customer">
+                <label>Orders</label>
+                <input type="file" name="orders" accept=".csv" required />
+            </div>
+        </div>
+        <div class="button">
+            <button type="submit">Convert</button>
+        </div>
+    </form>
+    <div class="footer">
+        <p>Copyright © 2025 Nghia Nguyen</p>
+    </div>
+</body>
+</html>
