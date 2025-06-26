@@ -54,11 +54,25 @@ order_field_mapping = [
     {'magento': 'PaymentAmountOrdered', 'shopify': 'Transaction: Amount'},
     {'magento': 'TransactionOrderCurrencyCode', 'shopify': 'Transaction: Currency'},
     {'magento': 'TransactionStatus', 'shopify': 'Transaction: Status'},
+    {'magento': 'SellerName', 'shopify': 'Fulfillment: Location'},
 ]
+
+blank_line_fields = [
+    'Line: Title', 'Line: SKU', 'Line: Quantity', 'Line: Price', 'Line: Discount',
+    'Line: Grams', 'Line: Taxable', 'Transaction: Amount', 'Transaction: Currency', 'Transaction: Status'
+]
+
+allowed_locations = {
+    'Minchinbury Pickup Location', 'Stan Cash Brooklyn', 'Tottenham Pickup Location', 'Stan Cash Keilor',
+    'Camberwell Pickup Location', 'Stan Cash Warehouse - NT', 'Stan Cash Warehouse - NSW',
+    'Stan Cash Warehouse - QLD', 'Stan Cash Warehouse - SA', 'Pack and Send Stepney',
+    'Stan Cash Warehouse - WA', 'Stan Cash Warehouse - TAS', 'Shop location'
+}
 
 def process_orders(order_file_path, max_rows=None):
     df = pd.read_csv(order_file_path, dtype=str).fillna('')
     mapped_rows = []
+    seen_orders = set()
 
     total = len(df)
 
@@ -94,7 +108,6 @@ def process_orders(order_file_path, max_rows=None):
                 val = row.get(magento_col, '0')
                 mapped_value = str(-abs(float(val))) if val.replace('.', '', 1).isdigit() else '0'
 
-            # Set 'Tags' to 'Guest' if CustomerIsGuest = 1
             elif magento_col == 'CustomerIsGuest' and shopify_col == 'Tags':
                 guest_flag = str(row.get(magento_col, '')).strip()
                 mapped_value = 'Guest, TestStg-2' if guest_flag == '1' else 'TestStg-2'
@@ -115,18 +128,32 @@ def process_orders(order_file_path, max_rows=None):
 
             mapped_row[shopify_col] = mapped_value
 
-        # Clean SKU
         sku = mapped_row.get('Line: SKU', '')
         mapped_row['Line: SKU'] = sku.split('-')[0] if '-' in sku else sku
 
         mapped_rows.append(mapped_row)
+
+        seller_name = row.get('SellerName', '').strip()
+        order_id = row.get('IncrementId', '')
+        if seller_name and order_id not in seen_orders:
+            fulfillment_row = mapped_row.copy()
+            for field in blank_line_fields:
+                fulfillment_row[field] = ''
+            fulfillment_row['Line: Type'] = 'Fulfillment Line'
+            fulfillment_row['Fulfillment: Location'] = seller_name if seller_name in allowed_locations else 'Tottenham Pickup Location'
+            mapped_rows.append(fulfillment_row)
+            seen_orders.add(order_id)
+
+    for row in mapped_rows:
+        if row.get('Line: Type') != 'Fulfillment Line':
+            row['Fulfillment: Location'] = ''
 
     print("\n✅ Mapping complete. Writing output...")
 
     output_df = pd.DataFrame(mapped_rows)
     output_files = []
 
-    if not max_rows:  # unlimited
+    if not max_rows:
         filename = 'migrated_orders.csv'
         output_df.to_csv(filename, index=False)
         output_files.append(filename)
@@ -156,6 +183,6 @@ if __name__ == '__main__':
         arg = sys.argv[2].lower()
         max_rows = None if arg == 'unlimited' else int(arg)
     else:
-        max_rows = 900  # default
+        max_rows = 900
 
     process_orders(order_file, max_rows)
