@@ -22,7 +22,7 @@ order_field_mapping = [
     {'magento': 'CreatedAt', 'shopify': 'Processed At'},
     {'magento': 'OrderCurrencyCode', 'shopify': 'Currency'},
     {'magento': 'Weight', 'shopify': 'Weight Total'},
-    {'magento': 'TaxAmount', 'shopify': 'Tax: Total'},
+    {'magento': 'TaxAmount', 'shopify': 'Tax 1: Price'},
     {'magento': 'Status', 'shopify': 'Payment: Status'},
     {'magento': 'CustomerEmail', 'shopify': 'Customer: Email'},
     {'magento': 'CustomerFirstname', 'shopify': 'Customer: First Name'},
@@ -73,6 +73,7 @@ def process_orders(order_file_path, max_rows=None):
     df = pd.read_csv(order_file_path, dtype=str).fillna('')
     mapped_rows = []
     seen_orders = set()
+    shipping_line_created = set()
 
     total = len(df)
 
@@ -135,6 +136,7 @@ def process_orders(order_file_path, max_rows=None):
 
         seller_name = row.get('SellerName', '').strip()
         order_id = row.get('IncrementId', '')
+
         if seller_name and order_id not in seen_orders:
             fulfillment_row = mapped_row.copy()
             for field in blank_line_fields:
@@ -143,6 +145,18 @@ def process_orders(order_file_path, max_rows=None):
             fulfillment_row['Fulfillment: Location'] = seller_name if seller_name in allowed_locations else 'Tottenham Pickup Location'
             mapped_rows.append(fulfillment_row)
             seen_orders.add(order_id)
+
+        shipping_amount = row.get('ShippingAmount', '').strip()
+        if shipping_amount and shipping_amount.replace('.', '', 1).isdigit() and order_id not in shipping_line_created:
+            shipping_row = mapped_row.copy()
+            for field in blank_line_fields:
+                shipping_row[field] = ''
+            shipping_row['Line: Type'] = 'Shipping Line'
+            shipping_row['Line: Title'] = 'Shipping & Handling'
+            shipping_row['Line: Price'] = shipping_amount
+            shipping_row['Fulfillment: Location'] = ''
+            mapped_rows.append(shipping_row)
+            shipping_line_created.add(order_id)
 
     for row in mapped_rows:
         if row.get('Line: Type') != 'Fulfillment Line':
