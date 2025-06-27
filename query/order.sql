@@ -40,6 +40,7 @@ SELECT
     -- Items
     i.name AS ItemName,
     i.sku AS ItemSku,
+    i.product_options AS ItemProductOptions,
     i.qty_ordered AS ItemQtyOrdered,
     i.price AS ItemPrice,
     i.discount_amount AS ItemDiscountAmount,

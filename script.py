@@ -3,6 +3,7 @@ import os
 import time
 import zipfile
 import sys
+import json
 
 # --- progress bar ---
 def print_progress(current, total, bar_length=40):
@@ -46,6 +47,7 @@ order_field_mapping = [
     {'magento': None, 'shopify': 'Line: Type', 'value': 'Line Item'},
     {'magento': 'ItemName', 'shopify': 'Line: Title'},
     {'magento': 'ItemSku', 'shopify': 'Line: SKU'},
+    {'magento': 'ItemProductOptions', 'shopify': 'Line: Properties'},
     {'magento': 'ItemQtyOrdered', 'shopify': 'Line: Quantity'},
     {'magento': 'ItemPrice', 'shopify': 'Line: Price'},
     {'magento': 'ItemDiscountAmount', 'shopify': 'Line: Discount'},
@@ -58,7 +60,7 @@ order_field_mapping = [
 ]
 
 blank_line_fields = [
-    'Line: Title', 'Line: SKU', 'Line: Quantity', 'Line: Price', 'Line: Discount',
+    'Line: Title', 'Line: SKU', 'Line: Properties', 'Line: Quantity', 'Line: Price', 'Line: Discount',
     'Line: Grams', 'Line: Taxable', 'Transaction: Amount', 'Transaction: Currency', 'Transaction: Status'
 ]
 
@@ -68,6 +70,46 @@ allowed_locations = {
     'Stan Cash Warehouse - QLD', 'Stan Cash Warehouse - SA', 'Pack and Send Stepney',
     'Stan Cash Warehouse - WA', 'Stan Cash Warehouse - TAS', 'Shop location'
 }
+
+giftcard_fields = [
+    'giftcard_sender_name',
+    'giftcard_sender_email',
+    'giftcard_recipient_name',
+    'giftcard_recipient_email',
+    'giftcard_message',
+    'giftcard_is_redeemable',
+    'giftcard_created_codes'
+]
+
+def prettify_label(label):
+    return label.replace('_', ' ').title()
+
+def extract_giftcard_properties(json_str):
+    try:
+        data = json.loads(json_str)
+        props = []
+        for key in giftcard_fields:
+            if key not in data:
+                continue
+
+            value = data[key]
+
+            if not value:
+                continue
+
+            if key == 'giftcard_is_redeemable':
+                if str(value).lower() == 'true':
+                    props.append(f"{prettify_label(key)}: Yes")
+                continue
+
+            if isinstance(value, list):
+                value = ', '.join(map(str, value))
+
+            props.append(f"{prettify_label(key)}: {value}")
+
+        return '\n'.join(props)
+    except Exception:
+        return ''
 
 def process_orders(order_file_path, max_rows=None):
     df = pd.read_csv(order_file_path, dtype=str).fillna('')
@@ -101,6 +143,9 @@ def process_orders(order_file_path, max_rows=None):
             elif shopify_col == 'Line: Taxable':
                 tax = row.get('ItemTaxAmount', '0')
                 mapped_value = float(tax) > 0 if tax.replace('.', '', 1).isdigit() else False
+
+            elif shopify_col == 'Line: Properties':
+                mapped_value = extract_giftcard_properties(row.get(magento_col, '{}'))
 
             elif magento_col == 'IncrementId' and shopify_col == 'Name':
                 mapped_value = f"#{row[magento_col]}"
