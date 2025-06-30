@@ -198,7 +198,7 @@ def process_orders(order_file_path, max_rows=None):
             for field in blank_line_fields:
                 shipping_row[field] = ''
             shipping_row['Line: Type'] = 'Shipping Line'
-            shipping_row['Line: Title'] = 'Shipping & Handling'
+            shipping_row['Line: Title'] = row.get('ShippingDescription', '').strip()
             shipping_row['Line: Price'] = shipping_amount
             shipping_row['Fulfillment: Location'] = ''
             mapped_rows.append(shipping_row)
