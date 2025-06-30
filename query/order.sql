@@ -13,6 +13,7 @@ SELECT
     o.customer_email AS CustomerEmail,
     o.customer_firstname AS CustomerFirstname,
     o.customer_lastname AS CustomerLastname,
+    o.shipping_description AS ShippingDescription,
 
     -- Seller name (prefer store_id = 25, fallback to store_id = 0)
     COALESCE(seller_name_25.value, seller_name_0.value) AS SellerName,
