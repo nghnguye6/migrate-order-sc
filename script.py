@@ -116,6 +116,7 @@ def process_orders(order_file_path, max_rows=None):
     mapped_rows = []
     seen_orders = set()
     shipping_line_created = set()
+    transaction_line_created = set()
 
     total = len(df)
 
@@ -156,7 +157,7 @@ def process_orders(order_file_path, max_rows=None):
 
             elif magento_col == 'CustomerIsGuest' and shopify_col == 'Tags':
                 guest_flag = str(row.get(magento_col, '')).strip()
-                mapped_value = 'Guest, TestStg-2' if guest_flag == '1' else 'TestStg-2'
+                mapped_value = 'Guest' if guest_flag == '1' else ''
 
             elif magento_col is None:
                 mapped_value = value
@@ -203,9 +204,41 @@ def process_orders(order_file_path, max_rows=None):
             mapped_rows.append(shipping_row)
             shipping_line_created.add(order_id)
 
+        payment_amount = row.get('PaymentAmountOrdered', '').strip()
+        if (
+            payment_amount
+            and payment_amount.replace('.', '', 1).isdigit()
+            and order_id not in transaction_line_created
+        ):
+            transaction_row = mapped_row.copy()
+            status_map = {
+                'pending': 'pending',
+                'processing': 'success',
+                'complete': 'success',
+                'closed': 'success',
+                'canceled': 'failure',
+                'humm_processed': 'success',
+            }
+            for field in blank_line_fields:
+                transaction_row[field] = ''
+            transaction_row['Line: Type'] = 'Transaction'
+            transaction_row['Transaction: Amount'] = payment_amount
+            transaction_row['Transaction: Currency'] = row.get('TransactionOrderCurrencyCode', '')
+            
+            raw_status = row.get('TransactionStatus', '').strip().lower()
+            transaction_row['Transaction: Status'] = status_map.get(raw_status, 'unknown')
+
+            transaction_row['Fulfillment: Location'] = ''
+            mapped_rows.append(transaction_row)
+            transaction_line_created.add(order_id)
+
     for row in mapped_rows:
         if row.get('Line: Type') != 'Fulfillment Line':
             row['Fulfillment: Location'] = ''
+        if row.get('Line: Type') != 'Transaction':
+            row['Transaction: Amount'] = ''
+            row['Transaction: Currency'] = ''
+            row['Transaction: Status'] = ''
 
     print("\n✅ Mapping complete. Writing output...")
 
