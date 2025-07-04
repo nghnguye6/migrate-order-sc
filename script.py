@@ -133,6 +133,7 @@ def process_orders(order_file_path, max_rows=None):
             if magento_col == 'Status' and shopify_col == 'Payment: Status':
                 status_map = {
                     'pending': 'pending',
+                    'afterpay_exception_review': 'pending',
                     'processing': 'paid',
                     'complete': 'paid',
                     'closed': 'refunded',
@@ -162,6 +163,13 @@ def process_orders(order_file_path, max_rows=None):
             elif magento_col is None:
                 mapped_value = value
 
+            elif magento_col == 'CreatedAt' and shopify_col == 'Processed At':
+                val = row.get('CreatedAt', '').strip()
+                if not val or val == '0000-00-00 00:00:00':
+                    mapped_value = row.get('UpdatedAt', '').strip()
+                else:
+                    mapped_value = val
+
             elif magento_col in row:
                 val = row[magento_col]
                 if split == 'first':
@@ -176,7 +184,48 @@ def process_orders(order_file_path, max_rows=None):
             mapped_row[shopify_col] = mapped_value
 
         sku = mapped_row.get('Line: SKU', '')
-        mapped_row['Line: SKU'] = sku.split('-')[0] if '-' in sku else sku
+        should_trim_sku = False
+
+        item_product_options = row.get('ItemProductOptions', '')
+        try:
+            data = json.loads(item_product_options)
+            options = data.get('options', [])
+            if any('value' in opt and opt['value'] for opt in options):
+                should_trim_sku = True
+        except Exception:
+            pass
+
+        if should_trim_sku and '-' in sku:
+            mapped_row['Line: SKU'] = sku.split('-')[0]
+        else:
+            mapped_row['Line: SKU'] = sku
+
+        def fill_partial_fields_with_dot(mapped_row, fields):
+            values = [mapped_row.get(k, '').strip() for k in fields]
+
+            if any(values) and not all(values):
+                for k in fields:
+                    if not mapped_row.get(k, '').strip():
+                        mapped_row[k] = '.'
+
+        billing_fields = [
+            'Billing: First Name',
+            'Billing: Last Name',
+            'Billing: Address 1',
+            'Billing: City',
+            'Billing: Country Code',
+        ]
+
+        shipping_fields = [
+            'Shipping: First Name',
+            'Shipping: Last Name',
+            'Shipping: Address 1',
+            'Shipping: City',
+            'Shipping: Country Code',
+        ]
+
+        fill_partial_fields_with_dot(mapped_row, billing_fields)
+        fill_partial_fields_with_dot(mapped_row, shipping_fields)
 
         mapped_rows.append(mapped_row)
 
@@ -198,7 +247,7 @@ def process_orders(order_file_path, max_rows=None):
             for field in blank_line_fields:
                 shipping_row[field] = ''
             shipping_row['Line: Type'] = 'Shipping Line'
-            shipping_row['Line: Title'] = row.get('ShippingDescription', '').strip()
+            shipping_row['Line: Title'] = row.get('ShippingDescription', '').strip() or 'Shipping'
             shipping_row['Line: Price'] = shipping_amount
             shipping_row['Fulfillment: Location'] = ''
             mapped_rows.append(shipping_row)
@@ -213,6 +262,7 @@ def process_orders(order_file_path, max_rows=None):
             transaction_row = mapped_row.copy()
             status_map = {
                 'pending': 'pending',
+                'afterpay_exception_review': 'pending',
                 'processing': 'success',
                 'complete': 'success',
                 'closed': 'success',

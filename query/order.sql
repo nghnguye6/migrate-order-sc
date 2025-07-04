@@ -5,6 +5,7 @@ SELECT
     o.customer_note AS CustomerNote,
     o.customer_is_guest AS CustomerIsGuest,
     o.created_at AS CreatedAt,
+    o.updated_at AS UpdatedAt,
     o.order_currency_code AS OrderCurrencyCode,
     o.weight AS Weight,
     o.tax_amount AS TaxAmount,
