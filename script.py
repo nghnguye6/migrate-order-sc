@@ -24,6 +24,8 @@ order_field_mapping = [
     {'magento': 'OrderCurrencyCode', 'shopify': 'Currency'},
     {'magento': 'Weight', 'shopify': 'Weight Total'},
     {'magento': 'TaxAmount', 'shopify': 'Tax 1: Price'},
+    {'magento': None, 'shopify': 'Tax 2: Title', 'value': 'Discount Tax'},
+    {'magento': 'DiscountTax', 'shopify': 'Tax 2: Price'},
     {'magento': 'Status', 'shopify': 'Payment: Status'},
     {'magento': 'CustomerEmail', 'shopify': 'Customer: Email'},
     {'magento': 'CustomerFirstname', 'shopify': 'Customer: First Name'},
