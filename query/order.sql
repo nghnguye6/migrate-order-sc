@@ -1,5 +1,6 @@
 SELECT
     -- Order information
+    o.entity_id AS EntryId,
     o.increment_id AS IncrementId,
     o.customer_email AS Email,
     o.customer_note AS CustomerNote,
@@ -9,6 +10,7 @@ SELECT
     o.order_currency_code AS OrderCurrencyCode,
     o.weight AS Weight,
     o.tax_amount AS TaxAmount,
+    o.discount_tax_compensation_amount AS DiscountTax,
     o.shipping_amount AS ShippingAmount,
     o.status AS Status,
     o.customer_email AS CustomerEmail,
@@ -84,4 +86,4 @@ FROM sales_order o
      ) AS seller_name_0
         ON seller_name_0.entity_id = s.entity_id
 
-WHERE o.store_id = 25;
+WHERE o.store_id = 25 AND o.status IN ('complete', 'closed', 'canceled');
