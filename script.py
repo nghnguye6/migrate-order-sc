@@ -23,6 +23,7 @@ order_field_mapping = [
     {'magento': 'CreatedAt', 'shopify': 'Processed At'},
     {'magento': 'OrderCurrencyCode', 'shopify': 'Currency'},
     {'magento': 'Weight', 'shopify': 'Weight Total'},
+    {'magento': None, 'shopify': 'Tax: Included', 'value': 'TRUE'},
     {'magento': 'TaxAmount', 'shopify': 'Tax 1: Price'},
     {'magento': None, 'shopify': 'Tax 2: Title', 'value': 'Discount Tax'},
     {'magento': 'DiscountTax', 'shopify': 'Tax 2: Price'},
@@ -236,10 +237,19 @@ def process_orders(order_file_path, max_rows=None):
 
         if seller_name and order_id not in seen_orders:
             fulfillment_row = mapped_row.copy()
+            status_map = {
+                'complete': 'success',
+                'closed': 'success',
+                'canceled': 'failure',
+            }
             for field in blank_line_fields:
                 fulfillment_row[field] = ''
             fulfillment_row['Line: Type'] = 'Fulfillment Line'
             fulfillment_row['Fulfillment: Location'] = seller_name if seller_name in allowed_locations else 'Tottenham Pickup Location'
+
+            raw_status = row.get('TransactionStatus', '').strip().lower()
+            fulfillment_row['Fulfillment: Status'] = status_map.get(raw_status, 'unknown')
+
             mapped_rows.append(fulfillment_row)
             seen_orders.add(order_id)
 
