@@ -254,12 +254,13 @@ def process_orders(order_file_path, max_rows=None):
             seen_orders.add(order_id)
 
         shipping_amount = row.get('ShippingAmount', '').strip()
-        if shipping_amount and shipping_amount.replace('.', '', 1).isdigit() and order_id not in shipping_line_created:
+        shipping_description = row.get('ShippingDescription', '').strip()
+        if shipping_amount and shipping_description and shipping_amount.replace('.', '', 1).isdigit() and order_id not in shipping_line_created:
             shipping_row = mapped_row.copy()
             for field in blank_line_fields:
                 shipping_row[field] = ''
             shipping_row['Line: Type'] = 'Shipping Line'
-            shipping_row['Line: Title'] = row.get('ShippingDescription', '').strip() or 'Shipping'
+            shipping_row['Line: Title'] = shipping_description
             shipping_row['Line: Price'] = shipping_amount
             shipping_row['Fulfillment: Location'] = ''
             mapped_rows.append(shipping_row)
